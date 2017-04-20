@@ -1,0 +1,418 @@
+---
+title: "Signal Detection"
+author: "Nicolas Roux"
+date: "14 April 2017"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, root.dir= "C:/Users/Gast/Dropbox/Nico/Research/R/signal-detection")
+```
+
+
+
+
+The first chunk creates the basic data frame.
+```{r,eval=FALSE}
+library(rootSolve)
+library(mvtnorm)
+library(ggplot2)
+
+df <- read.csv("data_sd.csv", header=TRUE,sep=";")
+#rename some variables
+names(df)[names(df)=="sujet"] <- "subject"
+names(df)[names(df)=="groupe"] <- "group"
+names(df)[names(df)=="accuracy_trial_indiv"] <- "success"
+names(df)[names(df)=="conf_trial_indiv"] <- "confidence"
+#Drop useless variables
+df <- data.frame(df["subject"],df["trial"],df["success"],df["confidence"],df["expe"])
+#Select data from expe 1
+df <- df[df$expe==1,]
+#Drop subject 20, which is the same as subject 18
+df <- df[df$subject!=18,]
+#Reset the subject counter
+t <- df$subject >18
+df$subject <- df$subject - t
+#Drop the first 50 training observations for each individual
+df <- df[df$trial>50,]
+#Reset the trial counter
+df$trial <- df$trial - 50
+#Compute the calibration of each subject. positive calibration means the subject is overconfident.
+mean.success <- sapply(split(df$success,df$subject), function(x) mean(x))
+mean.confidence <- sapply(split(df$confidence,df$subject), function(x) mean(x))
+calibration <- mean.success - mean.confidence
+d <- 2*qnorm(mean.success)
+#integrate those three variables in the data frame.
+calibration <- rep(calibration,replicate(length(calibration),150))
+mean.success <- rep(mean.success,replicate(length(mean.success),150))
+mean.confidence <- rep(mean.confidence,replicate(length(mean.confidence),150))
+df <- cbind(df,calibration,mean.confidence,mean.success)
+df["calibrated.confidence"] <- df$confidence + df$calibration 
+```
+
+Function that predicts successes of a dyad using the confidence heuristic 
+
+```{r,eval=FALSE}
+confidence.heuristic <- function(x) {
+  if (x$success[x$subject==i]==x$success[x$subject==j]) {
+  s <- x$success[x$subject==i]
+  return(s)
+  } 
+  else if (x$confidence[x$subject==i] > x$confidence[x$subject==j]) {
+      s <- x$success[x$subject==i]
+  } 
+  else if (x$confidence[x$subject==i] < x$confidence[x$subject==j]) {
+      s <- x$success[x$subject==j]
+  }
+  else if (x$confidence[x$subject==i] == x$confidence[x$subject==j]) {
+      s <- rbinom(1, 1, .5)
+  }
+  return(s)
+}
+
+calibrated.confidence.heuristic <- function(x) {
+  if (x$success[x$subject==i]==x$success[x$subject==j]) {
+  s <- x$success[x$subject==i]
+  return(s)
+  } 
+  else if (x$calibrated.confidence[x$subject==i] > x$calibrated.confidence[x$subject==j]) {
+      s <- x$success[x$subject==i]
+  } 
+  else if (x$calibrated.confidence[x$subject==i] < x$calibrated.confidence[x$subject==j]) {
+      s <- x$success[x$subject==j]
+  }
+  else if (x$calibrated.confidence[x$subject==i] == x$calibrated.confidence[x$subject==j]) {
+      s <- rbinom(1, 1, .5)
+  }
+  return(s)
+}
+```
+
+Function that is used to estimate the correlation between dyad members' perceptive signals if perceptive signals are drawn from a bivariate normal distribution. 
+The function takes the difference between the theoretical probability of observing a joint success and its frequency.
+```{r,eval=FALSE}
+
+objective.correlation <- function(rho) {
+  pmvnorm(lower=c(0,0), upper=c(Inf,Inf), mean=c(d.i/2,d.j/2),corr= rbind(c(1,rho),c(rho,1))) - mean.joint.success
+}
+```
+
+This chunk assembles hypothetical dyads using our 66 individuals. The chunk creates a data frame that reports each dyad's input characteristics 
+(individual detection indices, correlation, relative calibration...) and output characteristics (performance if the confidence heuristic is used, ideal detection index...).
+
+```{r,eval=FALSE}
+x <- seq(from = 0, to = 1, by = .001)
+data <- data.frame()
+for (i in 1:64) {
+  for (j in (i+1):65) {
+    
+    #computes the correlation.
+    confidence.correlation <- cor(df$confidence[df$subject==i],df$confidence[df$subject==j])
+    success.correlation <- cor(df$success[df$subject==i],df$success[df$subject==j])
+    mean.success.ch <- mean(sapply(split(df,df$trial),function(x) confidence.heuristic(x))) 
+    mean.success.cal.ch <- mean(sapply(split(df,df$trial),function(x) calibrated.confidence.heuristic(x))) 
+    mean.success.i <- unique(df$mean.success[df$subject==i])
+    d.i <- 2*qnorm(mean.success.i)
+    mean.success.j <- unique(df$mean.success[df$subject==j])
+    d.j <- 2*qnorm(mean.success.j)
+    d.ch <- 2*qnorm(mean.success.ch)
+    d.ch.calibrated <- 2*qnorm(mean.success.cal.ch)
+    mean.joint.success <- mean(df$success[df$subject==i] == 1 & df$success[df$subject==j] == 1) #Proportion of joint successes.
+    #Correlation parameter if individual signals are distributed following a normal bivariate.
+    correlation <- x[which.max(-abs(sapply(x,function(x) objective.correlation(x))))] 
+    d.min <- min(d.i,d.j)
+    d.max <- max(d.i,d.j)
+    equality <- d.min/d.max
+    d.ideal <- (d.i^2+d.j^2-2*correlation*d.i*d.j)/((d.i-d.j*correlation)^2 + (d.j-d.i*correlation)^2 +2*correlation*(d.i-d.j*correlation)*(d.j-d.i*correlation))^(1/2)
+    d.ideal.independent <- (d.i^2+d.j^2)/(d.i^2 + d.j^2)^(1/2)
+    d.ch.theoretical <- (d.i^2+d.j^2)/(d.i^2 +d.j^2+2*correlation*d.i*d.j)^(1/2)
+    efficiency <- d.ch/d.ideal 
+    efficiency.theoretical <- d.ch.theoretical/d.ideal
+    efficiency.calibrated <- d.ch.calibrated/d.ideal
+    efficiency.independent <- d.ch/d.ideal.independent
+    benefit <- d.ch/d.max
+    benefit.theoretical <- d.ch.theoretical/d.max
+    benefit.calibrated <- d.ch.calibrated/d.max
+    benefit.ideal <- d.ideal/d.max
+    
+    
+    data <- rbind(data, c(d.i,d.j,correlation,equality,d.max,d.ideal,d.ideal.independent,d.ch,d.ch.calibrated,d.ch.theoretical, efficiency,efficiency.theoretical,efficiency.calibrated,efficiency.independent,benefit,benefit.calibrated,benefit.theoretical))
+    names(data) <- c("d.i","d.j","correlation","equality","d.max","d.ideal","d.ideal.independent","d.ch","d.ch.calibrated","d.ch.theoretical", "efficiency","efficiency.theoretical","efficiency.calibrated","efficiency.independent","benefit","benefit.calibrated","benefit.theoretical")
+  }
+}
+save(data,file="data_ch.Rda")
+```
+#Data Analysis
+```{r}
+load("C:/Users/Gast/Dropbox/Nico/Research/R/signal-detection/data_ch.Rda")
+data["dyad"] <- 1:2080
+```
+##Introduction
+Bahrami et al. (2010) 
+
+
+
+
+##Correlation Structure
+I want to check whether the estimated correlation between perceptive signals is not systematically too high. The reason why I suspect it might is that the correlated version of the optimal model predicts a lower performance than that attained using the confidence heursitic for over 25% of groups. The correlation coefficient that are used in data_ch.Rda are computed based on the successes only, i.e. confidences are let out of the picture. I therefore compute the correlation between confidences that would arise if perceptive signals actually came from the standard detection model with the estimated coefficients. I want to check whether those theoretical correlation between confidences somehow match the observed correlation between confidences. 
+
+The following code computes those theoretical correlations
+
+```{r}
+library('MASS')
+theoretical.confidence.correlation.function <- function(x) {
+  xixj <- mvrnorm(n = 1000, c(x$d.i/2,x$d.j/2), rbind(c(1,x$correlation),c(x$correlation,1)))
+  ci <- pmax(dnorm(xixj[,1],x$d.i/2,1)/(dnorm(xixj[,1],x$d.i/2,1)+dnorm(xixj[,1],-x$d.i/2,1)),dnorm(xixj[,1],-x$d.i/2,1)/(dnorm(xixj[,1],x$d.i/2,1)+dnorm(xixj[,1],-x$d.i/2,1)))
+  cj <- pmax(dnorm(xixj[,2],x$d.j/2,1)/(dnorm(xixj[,2],x$d.j/2,1)+dnorm(xixj[,2],-x$d.j/2,1)),dnorm(xixj[,2],-x$d.j/2,1)/(dnorm(xixj[,2],x$d.j/2,1)+dnorm(xixj[,2],-x$d.j/2,1)))
+  cor(ci,cj)
+}
+
+theoretical.confidence.correlation <- sapply(split(data,data$dyad),function(x) theoretical.confidence.correlation.function(x))
+data["theoretical.confidence.correlation"] <- theoretical.confidence.correlation
+
+```
+
+This following plots compares the distributions of theoretical and observed confidence correlation. They are remarkably similar, so there does not seem to be any systematic exageration of the correlation coefficients. 
+
+However, the theoretical confidence does not predict the observed confidence correlation. 
+
+
+
+## The Confidence Heuristic
+In theory there are three factors which affect the relative performance of the confidence heuristic. 
+
+*The first the calibration of confidences. When a participant is relatively overconfident relative to another, the confidence heuristic will follow the overconfident participant's too often. 
+
+* The other two factors are the correlation of perceptive signals and the heterogeneity of detection indices, and work jointly. In a dyad where there is no correlation, or identical detection indices, the confidence heuristic will perform closely to the benchmark. On the contrary, when there are both correlated signals and heterogeneous detection indices, then the confidence heuristic will underperform. 
+
+We are interested in the last two factors so we first attempt to neutralize the impact of confidence miscalibration. We do so by recalibrating the confidences of each participant. We do so in a rather naive way, i.e. our calibrated confidences are obtained by substracting the mean calibration error from the original confidence. This technique assumes that participants are uniformly over or underconfident, which is ntot quite true. Nevetheless, the recalibration of confidence measurably improves the performance of the confidence heuristic.
+
+```{r}
+hist(data$efficiency.cal.ch.correlated,xlim=c(0,2.3),ylim=c(0,800),breaks=15,col=rgb(1,1,0,0.7),main="",xlab="number")
+par(new=TRUE)
+hist(data$efficiency.ch.correlated,xxlim=c(0,2.3),ylim=c(0,800),breaks=15,col=rgb(0,1,1,0.4),main="",xlab="",ylab="",add=T)
+
+
+
+```
+
+#Efficiency of the confidence heuristic and detection inequality. 
+In all of this paper, we will refer to the confidence heuristic's peformance on a dyad as the dyad's peformance. 
+
+A dyad is said __unequal__ when its members have unequal sensivity. More detection inequality means that participants' detection indices differ more from one another. A dyad is __efficient__ when is performs close to its ideal performance level, as predicted within a signal detection model. We measure efficient as the rattio of the confidence heuristic detection index over the ideal detection index.
+
+A dyad is __miscalibrated__ when one participant is relatively overconfident, as compared to his teammate. A dyad may be well calibrated even if its members are not. Two participants which are equally underconfident will form a well calibrated dyad. The point is that one must be less underconfident than the other. 
+
+
+We first check what Massoni and Roux (2017) point out, i.e. unequal dyads are less efficient because more unequal dyads are more miscalibrated. To do so, we make two sets of predictions. In the first we compute the CH's detection index based on observed confidences. In the second, we compute the CH's performance based on calibrated confidences. Calibrated confidence are simply obtained by rescaling observed confidences so that each participant's average confidence equals his success rate. This calibration process is not perfect as subjects' miscalibration may not be uniform across confidence levels. For instance, some participants can be overconfident for small confidence level and underconfident for high confidence levels. Nevertheless, this manipulation significantly improves the CH's efficiency as shown in graphs A and B. 
+
+importantly for our purposes, calibrating confidence completely removes the relation between equality of a dyad and the efficiency of the confidence heuristic. This visual impression is shown to be statistically significant in the next tables. 
+
+
+```{r}
+library(ggplot2)
+library(cowplot)
+data$pred <- predict(lm(efficiency ~ equality, data = data))
+data$ones <- rep(1,length(data$pred))
+
+p1 <- ggplot(data, aes(x = equality, y = efficiency))+ geom_point() +
+  geom_line(aes(y = pred),size=1,colour='red') + geom_line(aes(y=ones),color='blue',size = 1)
+
+data$pred1 <- predict(lm(efficiency.calibrated ~ equality, data = data))
+data$ones <- rep(1,length(data$pred1))
+
+p2 <- ggplot(data, aes(x = equality, y = efficiency.calibrated)) + geom_point() +
+  geom_line(aes(y = pred1),size=1,colour='red') + geom_line(aes(y=ones),color='blue',size = 1)
+
+plot_grid(p1, p2, labels = c('A', 'B'),ncol=2)
+```
+
+```{r}
+summary(lm(formula = efficiency ~ equality, data = data))
+```
+```{r}
+summary(lm(formula = efficiency.calibrated ~ equality, data = data))
+```
+
+Graphs C and D reproduce the analysis from Bahrami et al. (2010). They represent the benefit of communication, i.e. how much did dyad improve relative to its more sensitive member. Or put another way, to what extent did the more sensitive member benefit from the input of the least sensitive member. 
+
+```{r}
+library(ggplot2)
+library(cowplot)
+data$pred <- predict(lm(benefit ~ equality + equality^2, data = data))
+data$ones <- rep(1,length(data$pred))
+
+p1 <- ggplot(data, aes(x = equality, y = benefit))+ geom_point() +
+  geom_line(aes(y = pred),size=1,colour='red') + geom_line(aes(y=ones),color='blue',size = 1)
+
+data$pred1 <- predict(lm(benefit.calibrated ~ equality + equality^2, data = data))
+data$ones <- rep(1,length(data$pred1))
+
+p2 <- ggplot(data, aes(x = equality, y = benefit.calibrated)) + geom_point() +
+  geom_line(aes(y = pred1),size=1,colour='red') + geom_line(aes(y=ones),color='blue',size = 1)
+
+plot_grid(p1, p2, labels = c('C', 'D'),ncol=2)
+```
+
+
+
+```{r}
+reg <- lm(efficiency.calibrated ~ equality  ,
+                             data=data) 
+#Show the results
+  summary(reg)
+```
+
+
+```{r}
+library(ggplot2)
+library(cowplot)
+data$d.ch.theoretical <- (data$d.i^2+data$d.j^2)/(data$d.i^2 +data$d.j^2+2*data$correlation*data$d.i*data$d.j)^(1/2)
+data$efficiency.ch.calibrated <- data$d.ch.calibrated/data$d.ch.theoretical
+data$pred <- predict(lm(data$efficiency.ch.calibrated ~ equality, data = data))
+data$ones <- rep(1,length(data$pred))
+
+p1 <- ggplot(data, aes(x = equality, y = efficiency.ch.calibrated))+ geom_point() +
+  geom_line(aes(y = pred),size=1,colour='red') + geom_line(aes(y=ones),color='blue',size = 1)
+
+data$efficiency.ch <- data$d.ch/data$d.ch.theoretical
+data$pred1 <- predict(lm(data$efficiency.ch ~ equality, data = data))
+data$ones <- rep(1,length(data$pred1))
+
+p2 <- ggplot(data, aes(x = equality, y = efficiency.ch))+ geom_point() +
+  geom_line(aes(y = pred1),size=1,colour='red') + geom_line(aes(y=ones),color='blue',size = 1)
+
+plot_grid(p2, p1, labels = c('A', 'B'),ncol=2)
+```
+
+```{r}
+reg <- lm(efficiency.ch.calibrated ~ equality  ,
+                             data=data) 
+#Show the results
+  summary(reg)
+```
+
+```{r}
+reg <- lm(efficiency.ch ~ equality  ,
+                             data=data) 
+#Show the results
+  summary(reg)
+```
+
+```{r}
+library(ggplot2)
+data$pred <- predict(lm(sqrt(efficiency_ch_correlated) ~ heterogeneity_bahrami, data = data))
+
+p1 <- ggplot(data, aes(x = heterogeneity_bahrami, y = sqrt(efficiency_ch_correlated)))
+
+p1 + geom_point(aes(color = relative_calibration)) +
+  geom_line(aes(y = pred))
+```
+
+The second point we want to make is that, even once the impact of calibration has been removed, there is still room for a equality-efficiency relation. This relation appears if and only if there is correlation between indvididual signals. 
+
+So in the next figure, we split the sample in two group, one with weak correlation and one with high correlation. And we draw the same plot. 
+```{r}
+library(ggplot2)
+data_ind <- subset(data,success_correlation<.1 & success_correlation>-.1)
+data_ind$pred <- predict(lm(sqrt(efficiency_cal_ch_correlated) ~ heterogeneity_bahrami, data = data_ind))
+
+p1 <- ggplot(data_ind, aes(x = heterogeneity_bahrami, y = sqrt(efficiency_cal_ch_correlated) ))
+
+p1 + geom_point(aes(color = success_correlation)) +
+  geom_line(aes(y = pred))
+```
+
+
+```{r}
+
+library(ggplot2)
+data_ind <- subset(data,success_correlation>.3)
+data_ind$pred <- predict(lm(sqrt(efficiency_cal_ch_correlated) ~ heterogeneity_bahrami, data = data_ind))
+
+p1 <- ggplot(data_ind, aes(x = heterogeneity_bahrami, y = sqrt(efficiency_cal_ch_correlated) ))
+
+p1 + geom_point(aes(color = success_correlation)) +
+  geom_line(aes(y = pred))
+```
+
+
+#What efficiency measure shall be used? 
+I would rather use an efficiency measure whose distribution looks like a normal distribution. I plot two efficiency measures, the measure and the square root of its value. 
+```{r}
+hist(data$efficiency_cal_ch_correlated)
+```{r}
+library(ggplot2)
+data_cor <- subset(data,correlation>.4)
+data_cor$pred <- predict(lm(sqrt(efficiency_cal_ch_correlated) ~ heterogeneity_bahrami, data = data_cor))
+
+p1 <- ggplot(data_cor, aes(x = heterogeneity_bahrami, y = sqrt(efficiency_cal_ch_correlated)))
+
+p1 + geom_point(aes(color = correlation)) +
+  geom_line(aes(y = pred))
+```
+
+
+```{r}
+hist(sqrt(data$efficiency_cal_ch_correlated))
+
+```
+
+```{r}
+hist(data$heterogeneity_bahrami)
+
+```
+
+##Analysis a la Bahrami et al. (2010).
+  
+Consider the following variation of Bahrami's experiment. The interval in which the oddball target will appear is chosen and common to both participants. The contrast of the oddball target however is independently drawn for each participant. For each participant, a psychometric function can be constructed. The individual psychometric functions will be similar to what Bahrami et al. (2010) obtained. Yet, the predicted psychometric function of the ideal dyad cannot be the same in these two experiments. In Bahrami's experiment, individuals will have correlated signals while in its variation presented here participants will have independent signals (or at least more independent signals). The prediction used in Bahrami applies better to the variation of their experiment. 
+
+
+
+In the following, we apply Bahrami's method to our experiment. Our experiment is similar to Bahrami's except that we fix the level of contrast. So, we remove this source of common variation in participants' ability to detect the originating event. As a result, the confidence heuristic based on properly calibrated confidence is supposed to perform optimally as long as participants' internal signals are independent.
+
+We isolate those dyads whose correlation in perceptive signals is no different from 0. And we perfom Bahrami's analysis on these dyads. 
+
+```{r}
+hist(data$success_correlation)
+```
+
+```{r}
+hist(data$confidence_correlation)
+```
+
+
+```{r}
+library(ggplot2)
+data$pred <- predict(lm(confidence_correlation ~ success_correlation, data = data))
+
+p1 <- ggplot(data, aes(x = success_correlation, y = confidence_correlation))
+
+p1 + geom_point() +
+  geom_line(aes(y = pred))
+```
+
+```{r}
+library(psychometric)
+CIr(r=.17, n = 150, level = .95)
+```
+The following graphs plots the relative detection improvement over $d_{max}$ predicted by the use of the confidence heuristic as well as the optimal integration of signals. 
+
+```{r}
+library(ggplot2)
+fun.d.ch <- function(e,rho) (1+e^2)/(1+e^2+2*rho*e)^(1/2)
+fun.d.opt <- function(e,rho) ((1+e^2-2*rho*e)/(1-rho^2))^(1/2)
+p <- ggplot(data = data.frame(x = c(0,1)), mapping = aes(x = x))
+p + stat_function(fun = fun.d.ch,args = list(.5)) + stat_function(fun = fun.d.opt,args = list(.5))
+
+
+
+
+
+```
+
+
+
+
