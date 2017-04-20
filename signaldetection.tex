@@ -1,0 +1,163 @@
+\documentclass[12pt]{report}
+\usepackage[utf8]{inputenc}
+\newcounter{example}[section]
+\newenvironment{example}[1][]{\refstepcounter{example}\par\medskip
+   \noindent \textbf{Example~\theexample. #1} \rmfamily}{\medskip}
+   
+\newenvironment{remark}[1][]{\refstepcounter{example}\par\medskip
+   \noindent \textbf{Remark~\theexample. #1} \rmfamily}{\medskip}
+   
+  \newenvironment{claim}[1][]{\refstepcounter{example}\par\medskip
+   \noindent \textbf{Claim~\theexample. #1} \rmfamily}{\medskip}
+
+\title{Signal Detection in Groups}
+\author{Nicolas Roux}
+
+\begin{document}
+\maketitle
+
+\chapter*{Attention Losses}
+This section presents a small flaw of signal detection theory when it comes to compute the ideal performance of a dyad engaged in a perceptive task. The ideal success rate of a dyad performing a 2AFC perceptive task is inferred from its members' individual success rates, assuming that individual perceptive signals are conditionally independent. \footnote{We will assume in the discussion that there is no bias so that the false alarm and hit rates sum to 1. We use the term success rate instead of hit rate.} The formula to compute the dyad ideal success rate is \footnote{The equivalent formulation in terms of sensitivity parameters is $$ d_{ideal} = \sqrt{d_1^{2} + d_2^{2}}. $$} $$ s_{ideal} = \Phi(\sqrt{\Phi^{-1}(s_1)^2+\Phi^{-1}(s_2)^2}).$$ The following example demonstrates the possibility for this analysis to underestimate the dyad's ideal success rate.
+
+\begin{example} \label{e1}
+Suppose that each dyad members loses attention once in a while, and that attention losses are independent across participants. For the sake of the argument, assume that attention losses arise with probability $1/2$ at each trial. Moreover, assume that participants have a 100\% success rate when they pay attention and a 50\% success rate when they do not. On average, each participants has a 75\% success rate. Based on these average individual success rates, the dyad's ideal success rate is 83\%. 
+
+This dyad should however perform better than that. Whenever at least one of the two participants pays attention, i.e. 3 trials out of 4, it should reach a 100\% success rate. It will get a 50\% success rate over the remaining trials. The resulting overall success rate reaches 87.5\%.
+\end{example}
+This claim of the model can be checked in an experiment where we randomly add noise to the stimulus each individual receives (for instance by shortening the exposure time). 
+
+
+
+
+
+\chapter*{Confidence Heuristic}
+In an influencial paper, Bahrami and co-authors provide evidence that dyads use a confidence heuristic in 2AFC perceptive tasks. To do so, they make subjects perform a 2AFC perceptive task in which the use of the confidence heuristic leads \textit{unequal} dyads, i.e. composed of unequally sensitive participants, to perform relatively poorly. When dyad members become extremely unequal, the confidence heuristic actually leads the dyad to perform more poorly than its most sensitive member, so that collaboration was detrimental to performance. The observed performance of unequal dyads in Bahrami et al. (2010) matches the theoretical predictions, which produces convincing evidence that participants used the confidence heuristic. 
+
+Though the nehative relation between the inequality of participants' sensitivity and the efficiency of participants' collaboration (henceforth, inequality-efficiency relation) is a mean to an end, it has attracted some attention (Ernst (2010), Massoni and Roux (2017), others...). In Bahrami et al. (2010) suggest to further study its generality: 
+
+\begin{quote} Individuals with very
+different sensitivities are best advised to avoid
+collaboration and instead should rely entirely on
+the more sensitive individual. In fact, the WCS
+model and the results of experiment 2 (Fig. 3D)
+set a quantitative limit on the usefulness of coop-
+eration that, to our knowledge, is not predicted by
+current economic and social theories of collective
+decision-making (15). An important next step for
+future research is to test the generality of this limit
+in other types of dyadic interactions. \end{quote}
+
+This paper circumvents the generality of the inequality-efficiency relation in 2AFC perceptive tasks. We first point out that the confidence heuristic can only be unefficient if participants' internal signals are correlated. We then propose that individual signals are correlated by design in Bahrami et al. (2010). We revisit the models used in Bahrami et al. (2010) to make this point clearly. Doing so notably suggests that the Bahrami and co-authors' theoretical predictions may have been overly pessimistic about the performance of the confidence heuristic. We finally present an experiment similar to that of Bahrami et al. (2010) except that we remove the correlating element. We show that the confidence heuristic leads the inequality-efficiency relation, but not through the mechanism identified by Bahrami et al. (2010)'s model. 
+
+
+
+%In a 2AFC perceptive task, there are two ways in which dyads using the confidence heuristic may fall short of their ideal performance. The first is that unequal dyad tend to be poorly calibrated. More sensitive observers tend to be underconfident relative to less sensitive observers. As a result, unequal dyads tend to follow their less sensitive member too often. The second is that, even with perfectly calibrated participants, the confidence heuristic leads unequal dyads to follow their less sensitive member too often if \textbf{individual signals are correlated.}
+
+
+%A puzzle with Bahrami's result is the following. Their model only accounts for the second type of inefficiency. And yet it seems to predict the whole range in inefficiency! I argue that their model overestimating the scope of mistakes of the confidence heuristic.
+\section{Theory}
+
+Bahrami et al. (2010) consider the following task. Participants observe two observation intervals, each of which contains targets. In one of the two intervals there is an oddball target, whose contrast is slightly stronger than the other targets. The task consists in finding out which interval contains the oddball target, which is made difficult by a short exposure time. The level of contrast of the oddball target varies from a trial to the other, which makes the task more or less hard to accomplish. Each participant performing this task has a certain sensitivity, which is inferred from his success rate (the proportion of trials where the participant successfully found the interval containing the oddball target).
+
+When two participants perform this task together, they have the potential to do better together than any one of them alone. So doing requires to identify which one of them is more likely to be right when they initially disagree. \footnote{When they initially agree, their best guess is obviously to go with the consensual interval.} It is then natural to expect a dyad to follow the opinion of its most confident member. Let us refer to this decision rule as the \textit{confidence heuristic}.
+
+The confidence heuristic, although intuitively appealing, leads in some tasks to systematic mistakes. The task studied in Bahrami et al. (2010) is one of them. 
+
+In a 2AFC perceptive task, either one of two events occur and generates a visual stimulus, which contains information about the \textit{originating event}. The stimulus is processed by human perception, which generates some amount of noise, and gives rise to an internal signal.
+
+In a 2AFC task, when the internal signals of two observers are generated independently from one another \textbf{conditional on the originating event}, the confidence heuristic is the optimal decision rule. 
+
+In Bahrami et al. (2010), individual signals are not independent. In fact, the design induces a systematic correlation between signals. The reason is that the contrast of the oddball varies from a trial to another. So, in some trials participants receive strong information about the originating interval while they receive weak information in other. As a result, the perceptive signals of different participants tend to be strong in the same trials, i.e. correlated conditional on the originating event. 
+
+This feature of the task in Bahrami et al. (2010) is what induces mistakes from the confidence heuristic. The more correlated the individual signals, the more inefficient the confidence heuristic. 
+
+The amount of correlation between individual signals depends on what generates their across-trial variation. Individual perceptive signals vary as a result of (1) the level of contrast and (2) the noise in the perception of the contrast. As pointed above, the first source of variation is common to all participants so it correlates their signals. The second source is specific to each individual and therefore tends to decorrelate signals. 
+
+It follows that when the contrast level varies more across trials, individual signals will be more correlated and the confidence heuristic more inefficient. When the individual perception of the contrast becomes more noisy, individual signals become more independent and the confidence heuristic more efficient. 
+
+In the models use in Bahrami et al. (2010), this determinant of the confidence heuristic's performance is not accounted for. In fact, their model makes the implicit assumption that the variance of the contrast is infinite. As a result, their predictions arise from the worst case scenario for the confidence heuristic.
+
+In standard signal detection models for 2AFC tasks, there are two originating events and therefore two conditional distribution of signals. The performance of an observer is interpreted using these two distributions. 
+
+
+Bahrami et al. (2010) use a different type of modelling. They model their task as an estimation problem. The originating event in their model is not the interval containing the oddball target, but the contrast of level of the oddball target, noted $\Delta c$. A positive (negative) contrast level means that originating event is the right (left) interval. An observer receives a signal $x_i$ that equals the contrast level plus a normally distributed error, whose precision $\tau_i$ reflects the observer's sensitivity. \footnote{The precision is the inverse of the variance.} Equipped with this signal, the observer forms a belief about the level of contrast. This belief is then used to determine the probability that the contrast level is positive or negative, i.e. the probability of the originating event. 
+
+The two forms of modelling are equivalent. From Bahrami and co-authors' model, one can infer the distributions of signals conditional on the originating events. To do so however, one needs to know what the distribution of contrast level is. And this is the missing element in the model of Bahrami et al. (2010). The rule that Bahrami and co-authors use to form belief assumes that the distribution of contrast levels does not play a role in belief formation, which is equivalent to say that it has an infinite variance. 
+
+Assume that, conditional on either interval, the contrast level $\Delta c$ is drawn from truncated normal distributions so that the unconditional distribution of contrast levels is normal with mean 0. \footnote{Specifically, conditional on the oddball target being in the right (left) interval, a level of contrast is drawn from a truncated normal distribution that only takes positive (negative) values. } Note the precision of the contrast level distribution $\tau$. \footnote{The precision is the inverse of the variance.} 
+
+Upon observing his signal $x_i$, an observer updates his belief about the contrast level. The updated belief is normally distributed with mean $\tau_i x_i$ and precision $\tau + \tau_i$. 
+
+If two participants $i$ and $j$ are to efficiently join their signals, they jointly update their prior belief to get a common belief which is normally distributed with mean $\tau_i x_i + \tau_j + x_j$ and precision $\tau + \tau_i + \tau_j$. The right interval is more likely to have generated the pair of signals if and only if $\tau_i x_i + \tau_j + x_j$ is positive. 
+
+Now, the confidence heuristic does something somewhat different. If participants choose the individual that is the most confident, they will choose the right interval if and only if $$ \frac{\tau_i}{\sqrt{\tau+\tau_i}} x_i + \frac{\tau_j}{\sqrt{\tau+\tau_j}} x_j $$ is positive. 
+
+These two decision rules converge toward one another when the precision of the prior increases. This is due to the fact that a more precise contrast level distribution reduces the correlation of individual signals. 
+
+The confidence heuristic only diverge from the ideal decision rule when the two observers have different sensitivities. In case of unequal sensitivities, the confidence heuristic makes the mistake of giving too much weight to the signal of the least sensitivie participant. When the two participants disagree and are equally confident, the confidence heuristic says that they can go either way, whereas ideally they should follow the most confident member. 
+
+This inefficiency becomes maximal when the contrast level becomes infinitely variable, i.e. when $\tau$ is close to 0. This is the case that Bahrami et al. (2010) consider when they make their predictions. 
+
+\begin{remark}
+In a 2AFC perceptive task, there are two ways in which dyads using the confidence heuristic may fall short of their ideal performance. The first is that unequal dyad tend to be poorly calibrated. More sensitive observers tend to be underconfident relative to less sensitive observers. As a result, unequal dyads tend to follow their less sensitive member too often. The second is that, even with perfectly calibrated participants, the confidence heuristic leads unequal dyads to follow their less sensitive member too often if \textbf{individual signals are correlated.}
+
+A puzzle with Bahrami's result is the following. Their model only accounts for the second type of inefficiency. And yet it seems to predict the whole range in inefficiency! It may be that their model overestimated the scope of mistakes of the confidence heuristic.
+\end{remark}
+
+
+
+\end{document}
+
+\section*{Miscellaneous}
+What the following examples miss is that the attention losses are correlated across participants (negatively in one example, and positively in the other). So the prediction of the signal detection model should account for that. 
+\begin{example}
+In this example, dyad 1 and dyad 2 are both composed of participants with a success rate of 70\% over the whole experiment. In dyad 2, this success rate is constant throughout the experiment. In dyad 1, however, subject A is more focused in the last part of the experiment: over the first half of the experiment his success rate is 60\% while it jumps to 80\% over the last half. Subject B does the opposite.
+\begin{center} 
+\begin{tabular}{ c| c c } 
+ 
+ \textbf{dyad 1} & period 1 & period 2 \\ 
+  \hline
+ subject A & 60\% & 80\% \\ 
+ subject B & 80\% & 60\% \\ 
+\end{tabular}
+\quad \quad \quad
+\begin{tabular}{ c| c c } 
+ 
+\textbf{dyad 2} & period 1 & period 2 \\ 
+  \hline
+ subject A & 70\% & 70\% \\ 
+ subject B & 70\% & 70\% \\ 
+\end{tabular}
+\end{center}
+The ideal success rate of a dyad whose members have success rate $s_1$ and $s_2$ and where individual perceptive signals are independent conditional on the originating event writes: $$ s_{ideal} = \Phi(\sqrt{\Phi^{-1}(s_1)^2+\Phi^{-1}(s_2)^2}) .$$ The equivalent formulation in terms of sensitivity parameters is $$ d_{ideal} = \sqrt{d_1^2 + d_2^2} .$$ According to these functions, dyad 1 ideally performs better than dyad 2 in both period and period 2. 
+\end{example}
+
+\begin{example}
+Here, the participants get tired at the same time. Unlike example 1, dyad 1 is expected to perform worse than dyad 2. 
+\begin{center} 
+\begin{tabular}{ c| c c } 
+ 
+ \textbf{dyad 1} & period 1 & period 2 \\ 
+  \hline
+ subject A & 60\% & 80\% \\ 
+ subject B & 60\% & 80\% \\ 
+\end{tabular}
+\quad \quad \quad
+\begin{tabular}{ c| c c } 
+ 
+\textbf{dyad 2} & period 1 & period 2 \\ 
+  \hline
+ subject A & 70\% & 70\% \\ 
+ subject B & 70\% & 70\% \\ 
+\end{tabular}
+\end{center}
+The function $s_{ideal}(s,s)$ is concave in $s$. Intuitively, there are more benefits from signal aggregation for intermediate sensitivity than for extreme sensitivity. So joint variations of the participants' success rates are detrimental to the dyad's ideal success rate.
+\end{example}
+
+In the last example, the participants' success rates vary independently from one another. 
+
+\begin{example}
+
+\end{example}
+
+Now, if the predictions are done with the sensitivity parameters instead of the success rates, then the property of example 2 vanishes. The dyad's ideal sensitivity will not change with joint variations of the participants' sensitivities. 
