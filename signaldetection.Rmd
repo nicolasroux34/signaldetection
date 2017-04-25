@@ -103,7 +103,7 @@ This chunk assembles hypothetical dyads using our 66 individuals. The chunk crea
 (individual detection indices, correlation, relative calibration...) and output characteristics (performance if the confidence heuristic is used, ideal detection index...).
 
 ```{r,eval=FALSE}
-x <- seq(from = 0, to = 1, by = .001)
+x <- seq(from = -.5, to = .8, by = .001)
 data <- data.frame()
 for (i in 1:64) {
   for (j in (i+1):65) {
@@ -119,9 +119,11 @@ for (i in 1:64) {
     d.j <- 2*qnorm(mean.success.j)
     d.ch <- 2*qnorm(mean.success.ch)
     d.ch.calibrated <- 2*qnorm(mean.success.cal.ch)
-    mean.joint.success <- mean(df$success[df$subject==i] == 1 & df$success[df$subject==j] == 1) #Proportion of joint successes.
+    mean.joint.success <- mean(df$success[df$subject==i] == 1 & df$success[df$subject==j] == 1) 
     #Correlation parameter if individual signals are distributed following a normal bivariate.
     correlation <- x[which.max(-abs(sapply(x,function(x) objective.correlation(x))))] 
+    
+    
     d.min <- min(d.i,d.j)
     d.max <- max(d.i,d.j)
     equality <- d.min/d.max
@@ -138,8 +140,8 @@ for (i in 1:64) {
     benefit.ideal <- d.ideal/d.max
     
     
-    data <- rbind(data, c(d.i,d.j,correlation,equality,d.max,d.ideal,d.ideal.independent,d.ch,d.ch.calibrated,d.ch.theoretical, efficiency,efficiency.theoretical,efficiency.calibrated,efficiency.independent,benefit,benefit.calibrated,benefit.theoretical))
-    names(data) <- c("d.i","d.j","correlation","equality","d.max","d.ideal","d.ideal.independent","d.ch","d.ch.calibrated","d.ch.theoretical", "efficiency","efficiency.theoretical","efficiency.calibrated","efficiency.independent","benefit","benefit.calibrated","benefit.theoretical")
+    data <- rbind(data, c(mean.joint.success,d.i,d.j,correlation,equality,d.max,d.ideal,d.ideal.independent,d.ch,d.ch.calibrated,d.ch.theoretical, efficiency,efficiency.theoretical,efficiency.calibrated,efficiency.independent,benefit,benefit.calibrated,benefit.theoretical))
+    names(data) <- c("mean.joint.success","d.i","d.j","correlation","equality","d.max","d.ideal","d.ideal.independent","d.ch","d.ch.calibrated","d.ch.theoretical", "efficiency","efficiency.theoretical","efficiency.calibrated","efficiency.independent","benefit","benefit.calibrated","benefit.theoretical")
   }
 }
 save(data,file="data_ch.Rda")
@@ -150,8 +152,6 @@ load("C:/Users/Gast/Dropbox/Nico/Research/R/signal-detection/data_ch.Rda")
 data["dyad"] <- 1:2080
 ```
 ##Introduction
-Bahrami et al. (2010) 
-
 
 
 
@@ -160,7 +160,7 @@ I want to check whether the estimated correlation between perceptive signals is 
 
 The following code computes those theoretical correlations
 
-```{r}
+```{r, eval=FALSE}
 library('MASS')
 theoretical.confidence.correlation.function <- function(x) {
   xixj <- mvrnorm(n = 1000, c(x$d.i/2,x$d.j/2), rbind(c(1,x$correlation),c(x$correlation,1)))
@@ -198,35 +198,6 @@ A dyad is said __unequal__ when its members have unequal sensivity. More detecti
 A dyad is __miscalibrated__ when one participant is relatively overconfident, as compared to his teammate. A dyad may be well calibrated even if its members are not. Two participants which are equally underconfident will form a well calibrated dyad. The point is that one must be less underconfident than the other. 
 
 
-We first check what Massoni and Roux (2017) point out, i.e. unequal dyads are less efficient because more unequal dyads are more miscalibrated. To do so, we make two sets of predictions. In the first we compute the CH's detection index based on observed confidences. In the second, we compute the CH's performance based on calibrated confidences. Calibrated confidence are simply obtained by rescaling observed confidences so that each participant's average confidence equals his success rate. This calibration process is not perfect as subjects' miscalibration may not be uniform across confidence levels. For instance, some participants can be overconfident for small confidence level and underconfident for high confidence levels. Nevertheless, this manipulation significantly improves the CH's efficiency as shown in graphs A and B. 
-
-importantly for our purposes, calibrating confidence completely removes the relation between equality of a dyad and the efficiency of the confidence heuristic. This visual impression is shown to be statistically significant in the next tables. 
-
-
-```{r}
-library(ggplot2)
-library(cowplot)
-data$pred <- predict(lm(efficiency ~ equality, data = data))
-data$ones <- rep(1,length(data$pred))
-
-p1 <- ggplot(data, aes(x = equality, y = efficiency))+ geom_point() +
-  geom_line(aes(y = pred),size=1,colour='red') + geom_line(aes(y=ones),color='blue',size = 1)
-
-data$pred1 <- predict(lm(efficiency.calibrated ~ equality, data = data))
-data$ones <- rep(1,length(data$pred1))
-
-p2 <- ggplot(data, aes(x = equality, y = efficiency.calibrated)) + geom_point() +
-  geom_line(aes(y = pred1),size=1,colour='red') + geom_line(aes(y=ones),color='blue',size = 1)
-
-plot_grid(p1, p2, labels = c('A', 'B'),ncol=2)
-```
-
-```{r}
-summary(lm(formula = efficiency ~ equality, data = data))
-```
-```{r}
-summary(lm(formula = efficiency.calibrated ~ equality, data = data))
-```
 
 Graphs C and D reproduce the analysis from Bahrami et al. (2010). They represent the benefit of communication, i.e. how much did dyad improve relative to its more sensitive member. Or put another way, to what extent did the more sensitive member benefit from the input of the least sensitive member. 
 
@@ -250,77 +221,156 @@ plot_grid(p1, p2, labels = c('C', 'D'),ncol=2)
 
 
 
-```{r}
-reg <- lm(efficiency.calibrated ~ equality  ,
-                             data=data) 
-#Show the results
-  summary(reg)
-```
 
 
-```{r}
-library(ggplot2)
-library(cowplot)
-data$d.ch.theoretical <- (data$d.i^2+data$d.j^2)/(data$d.i^2 +data$d.j^2+2*data$correlation*data$d.i*data$d.j)^(1/2)
-data$efficiency.ch.calibrated <- data$d.ch.calibrated/data$d.ch.theoretical
-data$pred <- predict(lm(data$efficiency.ch.calibrated ~ equality, data = data))
-data$ones <- rep(1,length(data$pred))
-
-p1 <- ggplot(data, aes(x = equality, y = efficiency.ch.calibrated))+ geom_point() +
-  geom_line(aes(y = pred),size=1,colour='red') + geom_line(aes(y=ones),color='blue',size = 1)
-
-data$efficiency.ch <- data$d.ch/data$d.ch.theoretical
-data$pred1 <- predict(lm(data$efficiency.ch ~ equality, data = data))
-data$ones <- rep(1,length(data$pred1))
-
-p2 <- ggplot(data, aes(x = equality, y = efficiency.ch))+ geom_point() +
-  geom_line(aes(y = pred1),size=1,colour='red') + geom_line(aes(y=ones),color='blue',size = 1)
-
-plot_grid(p2, p1, labels = c('A', 'B'),ncol=2)
-```
-
-```{r}
-reg <- lm(efficiency.ch.calibrated ~ equality  ,
-                             data=data) 
-#Show the results
-  summary(reg)
-```
-
-```{r}
-reg <- lm(efficiency.ch ~ equality  ,
-                             data=data) 
-#Show the results
-  summary(reg)
-```
-
-
-
-
-
-
-
-
-
-
-```{r}
-library(psychometric)
-CIr(r=.17, n = 150, level = .95)
-```
 The following graphs plots the relative detection improvement over $d_{max}$ predicted by the use of the confidence heuristic as well as the optimal integration of signals. 
 
 ```{r}
 library(ggplot2)
-fun.d.ch <- function(e,rho) (1+e^2)/(1+e^2+2*rho*e)^(1/2)
-fun.d.opt <- function(e,rho) ((1+e^2-2*rho*e)/(1-rho^2))^(1/2)
+
+fun.b.ch <- function(e,rho) ( 1+e^2 ) / ( 1+e^2+2*rho*e )^(1/2)
+fun.b.opt <- function(e,rho) ( 1+e^2-2*rho*e ) / ( (1-rho*e)^2 + (e-rho)^2 + 2*rho*(e-rho)*(1-rho*e) )^(.5)
+
 p <- ggplot(data = data.frame(x = c(0,1)), mapping = aes(x = x))
-p + stat_function(fun = fun.d.ch,args = list(.5)) + stat_function(fun = fun.d.opt,args = list(.5))
+p + stat_function(fun = fun.b.ch,args = list(0.3),colour = "red") + stat_function(fun = fun.b.opt,args = list(0.3)) + stat_function(fun=function(x) 1,color="blue")
 
+data$b.opt <- data$d.ideal/data$d.max
+data$b.ch <- data$d.ch.theoretical/data$d.max
 
+data.cor <- subset(data,correlation>0.55)
+
+ggplot(data.cor, aes(y=b.opt,x=equality,colour = correlation)) + geom_point() +ylim(.9,1.6)
+ggplot(data.cor, aes(y=b.ch,x=equality,color=correlation)) + geom_point() +ylim(.9,1.6)
+ggplot(data.cor,aes(y=benefit.calibrated,x=equality,color=correlation))+ geom_point() 
+p + stat_function(fun = fun.b.ch,args = list(0.6),colour = "red") + stat_function(fun = fun.b.opt,args = list(0.6)) + stat_function(fun=function(x) 1,color="blue")
 
 
 
 ```
 
+Here, the value of s.max is 1 so that the s.ch and s.ideal equal the b.ch and b.ideal respectively. 
+```{r}
+library(ggplot2)
+s.ch <- function(s.min, s.max,s) (s.max^2*sqrt(s.min^2+s^2)+s.min^2*sqrt(s.max^2+s^2)) / (s.max*(2*s.max^2*s.min^2+s^2*(s.max^2+s.min^2))^(.5))
+s.ideal <- function(s.min,s.max) (s.max^2 + s.min^2)^(.5)
 
 
+p <- ggplot(data = data.frame(x = c(0,1)), mapping = aes(x = x))
+p + stat_function(fun = s.ch,args = list(1,0),colour = "red") + stat_function(fun = s.ch,args = list(1,0.2),colour = "blue") + stat_function(fun = s.ideal,args = list(1),colour = "black",size=1)
+
+```
+ 
+ Expressing our result using the s instead of d
+ 
+ 
+```{r}
+library(ggplot2)
+b.ideal <- function(e,rho) (1+e^2)*(1+e^2+2*rho*e)^(-.5)
+s.ideal <- function(s.i,s.j,rho) (s.i^2+s.j^2)*(s.i^2+s.j^2+2*rho*s.i*s.j)^(-.5)
+p <- ggplot(data = data.frame(x = c(0,1)), mapping = aes(x = x))
+p + stat_function(fun = b.ideal,args = list(0.3),colour = "red")
+p + stat_function(fun= s.ideal, args=list(1,.5))
+```
+
+I take a group with maximal correlation, i.e. the joint success rate equals the success rate of the least sensitive participant. 
+
+
+#Analysis a la Bahrami et al. (2010)
+These first two plots show the inequality-efficiency relationship. We plot the benefits of collaboration, i.e. the ratio of the dyad's detection index (obtained through the confidence heuristic) and the detection index of its most sensitive member. 
+```{r}
+library(ggplot2)
+library(cowplot)
+data$equality2 <- data$equality^2
+data$pred <- predict(lm(benefit ~ equality + equality2, data = data))
+data$ones <- rep(1,length(data$pred))
+
+p1 <- ggplot(data, aes(x = equality, y = benefit))+ geom_point() +
+  geom_line(aes(y = pred),size=1,colour='red') + geom_line(aes(y=ones),color='blue',size = 1)
+
+data$pred1 <- predict(lm(benefit.calibrated ~ equality + equality2, data = data))
+data$ones <- rep(1,length(data$pred1))
+
+p2 <- ggplot(data, aes(x = equality, y = benefit.calibrated)) + geom_point() +
+  geom_line(aes(y = pred1),size=1,colour='red') + geom_line(aes(y=ones),color='blue',size = 1)
+
+plot_grid(p1, p2, labels = c('C', 'D'),ncol=2)
+```
+
+```{r}
+library(ggplot2)
+library(cowplot)
+data$equality2 <- data$equality^2
+data.independent <- subset(data, data$correlation<0.22)
+
+data.independent$pred <- predict(lm(benefit.calibrated ~ equality + equality2, data = data.independent))
+data.independent$ones <- rep(1,length(data.independent$pred))
+
+p1 <- ggplot(data.independent, aes(x = equality, y = benefit.calibrated))+ geom_point() +
+  geom_line(aes(y = pred),size=1,colour='red') + geom_line(aes(y=ones),color='blue',size = 1)+ xlim(.2, 1) +ylim(.5,2)
+
+data.correlated <- subset(data, data$correlation>0.22)
+
+data.correlated$pred1 <- predict(lm(benefit.calibrated ~ equality + equality2, data = data.correlated))
+data.correlated$ones <- rep(1,length(data.correlated$pred1))
+
+p2 <- ggplot(data.correlated, aes(x = equality, y = benefit.calibrated)) + geom_point() +
+  geom_line(aes(y = pred1),size=1,colour='red') + geom_line(aes(y=ones),color='blue',size = 1) + xlim(.2, 1)+ylim(.5,2)
+
+plot_grid(p1, p2, labels = c('C', 'D'),ncol=2)
+```
+
+```{r}
+ggplot(data,aes(x=equality,y=correlation)) + geom_point()
+```
+
+
+```{r}
+hist(data$correlation)
+var(data$correlation)
+mean(data$correlation)
+```
+
+```{r}
+hist(data$mean.joint.success)
+```
+
+The following curves gives a prediction on the relationship between equality and benefit that should be observed under the confidence heuristic. Assumption: (1) the distribution of correlation is normal, which is checked above. (2) equality and correlation are independent.
+
+This line is the average benefit across dyads of a given equality, where the correlation parameters varies according to a normal distribution (the same for all equality levels).
+
+```{r}
+mean.success.i <- 0.84
+mean.success.j <- 0.69
+sigma.i <- 1/qnorm(mean.success.i)
+sigma.j <- 1/qnorm(mean.success.j)
+e <- sigma.i/sigma.j
+mean.joint.success <- 0.5
+objective.correlation <- function(rho) {
+  pmvnorm(lower=c(0,0), upper=c(Inf,Inf), mean=c(1,1),sigma= rbind(c(sigma.i^2,rho*sigma.i*sigma.j),c(rho*sigma.i*sigma.j,sigma.j^2))) - mean.joint.success
+}
+
+x <- seq(from = -1, to = 1, by = .001)
+correlation <- x[which.max(-abs(sapply(x,function(x) objective.correlation(x))))]
+correlation
+```
+```{r}
+sigma.i <- 1
+sigma.j <- 2
+rho <- .5
+pmvnorm(lower=c(0,0), upper=c(Inf,Inf), mean=c(1,1),sigma= rbind(c(sigma.i^2,rho*sigma.i*sigma.j),c(rho*sigma.i*sigma.j,sigma.j^2)))
+```
+
+#The ideal s 
+```{r}
+
+
+s.ideal <- function(s.j,s.i,rho) {
+  k.i <- s.i^2 - rho*s.i*s.j
+  k.j <- s.j^2 - rho*s.i*s.j
+  (k.i+k.j)*( k.i^2/s.i^2 + k.j^2/s.j^2 +(2*rho*k.i*k.j)/(s.i*s.j)  )^(-.5)
+}
+p <- ggplot(data = data.frame(x = c(0,1)), mapping = aes(x = x))
+p + stat_function(fun= s.ideal, args=list(1,0.5))
+
+```
 
