@@ -49,7 +49,9 @@ calibration <- rep(calibration,replicate(length(calibration),150))
 mean.success <- rep(mean.success,replicate(length(mean.success),150))
 mean.confidence <- rep(mean.confidence,replicate(length(mean.confidence),150))
 df <- cbind(df,calibration,mean.confidence,mean.success)
-df["calibrated.confidence"] <- df$confidence + df$calibration 
+df["calibrated.confidence"] <- df$confidence + df$calibration
+df$confidence[df$confidence==1]<-.99
+
 ```
 
 Function that predicts successes of a dyad using the confidence heuristic 
@@ -88,6 +90,49 @@ calibrated.confidence.heuristic <- function(x) {
   }
   return(s)
 }
+
+ideal.confidence.combination <- function(x) {
+  if (min(k.i,k.j) <0) {
+    if (x$success[x$subject==i]!=x$success[x$subject==j]) {
+      if (s.i>s.j) { 
+        s<- x$success[x$subject==i]
+        
+      } 
+      else if (s.j>s.i) {
+        s<- x$success[x$subject==j]
+      }
+    } 
+    else if (x$success[x$subject==i] == x$success[x$subject==j]) {
+      if (  (k.i/s.i^2)*(log(x$confidence[x$subject==i]/(1- x$confidence[x$subject==i]))) + (k.j/s.j^2)*(log(x$confidence[x$subject==j]/(1- x$confidence[x$subject==j]))) > 0 ){
+        s<- x$success[x$subject==i]
+      } 
+      else if ((k.i/s.i^2)*log(x$confidence[x$subject==i]/(1- x$confidence[x$subject==i]))+ (k.j/s.j^2)*log(x$confidence[x$subject==j]/(1- x$confidence[x$subject==j]))<0) {
+        s <- 1- x$success[x$subject==i]
+      }
+      else if ((k.i/s.i^2)*log(x$confidence[x$subject==i]/(1- x$confidence[x$subject==i]))+ (k.j/s.j^2)*log(x$confidence[x$subject==j]/(1- x$confidence[x$subject==j]))==0) {
+        s <- rbinom(1, 1, .5)
+      }
+    }
+    
+  } 
+  else if (min(k.i,k.j>=0)) {
+    if (x$success[x$subject==i]==x$success[x$subject==j]) {
+      s <- x$success[x$subject==i]
+    }
+    else if (x$success[x$subject==i]!=x$success[x$subject==j]) {
+      if (  (k.i/s.i^2)*log(x$confidence[x$subject==i]/(1- x$confidence[x$subject==i]))+ (k.j/s.j^2)*log((1-x$confidence[x$subject==j])/(x$confidence[x$subject==j]))>0){
+        s<- x$success[x$subject==i]
+      }
+      else if (  (k.i/s.i^2)*log(x$confidence[x$subject==i]/(1- x$confidence[x$subject==i]))+ (k.j/s.j^2)*log((1-x$confidence[x$subject==j])/(x$confidence[x$subject==j]))<0){
+        s<- x$success[x$subject==j]
+      }
+      else if (  (k.i/s.i^2)*log(x$confidence[x$subject==i]/(1- x$confidence[x$subject==i]))+ (k.j/s.j^2)*log((1-x$confidence[x$subject==j])/(x$confidence[x$subject==j]))==0){
+        s<- rbinom(1, 1, .5)
+      }
+    }
+    
+  }
+}
 ```
 
 Function that is used to estimate the correlation between dyad members' perceptive signals if perceptive signals are drawn from a bivariate normal distribution. 
@@ -123,7 +168,6 @@ for (i in 1:64) {
     #Correlation parameter if individual signals are distributed following a normal bivariate.
     correlation <- x[which.max(-abs(sapply(x,function(x) objective.correlation(x))))] 
     
-    
     d.min <- min(d.i,d.j)
     d.max <- max(d.i,d.j)
     equality <- d.min/d.max
@@ -138,10 +182,18 @@ for (i in 1:64) {
     benefit.theoretical <- d.ch.theoretical/d.max
     benefit.calibrated <- d.ch.calibrated/d.max
     benefit.ideal <- d.ideal/d.max
+    s.i <- d.i/2
+    s.j <- d.j/2
+    s.min <- d.min/2
+    s.max <- d.max/2
+    k.i <- s.i^2 - correlation*s.i*s.j
+    k.j <- s.j^2 - correlation*s.i*s.j
+    k.min <- min(k.i,k.j)
+    mean.success.ideal.confidence.combination <- mean(sapply(split(df,df$trial),function(x) ideal.confidence.combination(x))) 
+    s.ideal.confidence.combination <- qnorm(mean.success.ideal.confidence.combination)
     
-    
-    data <- rbind(data, c(mean.joint.success,d.i,d.j,correlation,equality,d.max,d.ideal,d.ideal.independent,d.ch,d.ch.calibrated,d.ch.theoretical, efficiency,efficiency.theoretical,efficiency.calibrated,efficiency.independent,benefit,benefit.calibrated,benefit.theoretical))
-    names(data) <- c("mean.joint.success","d.i","d.j","correlation","equality","d.max","d.ideal","d.ideal.independent","d.ch","d.ch.calibrated","d.ch.theoretical", "efficiency","efficiency.theoretical","efficiency.calibrated","efficiency.independent","benefit","benefit.calibrated","benefit.theoretical")
+    data <- rbind(data, c(mean.joint.success,d.i,d.j,correlation,equality,d.max,d.ideal,d.ideal.independent,d.ch,d.ch.calibrated,d.ch.theoretical, efficiency,efficiency.theoretical,efficiency.calibrated,efficiency.independent,benefit,benefit.calibrated,benefit.theoretical,s.i,s.j,k.i,k.j,mean.success.ideal.confidence.combination))
+    names(data) <- c("mean.joint.success","d.i","d.j","correlation","equality","d.max","d.ideal","d.ideal.independent","d.ch","d.ch.calibrated","d.ch.theoretical", "efficiency","efficiency.theoretical","efficiency.calibrated","efficiency.independent","benefit","benefit.calibrated","benefit.theoretical","s.i","s.j","k.i","k.j","mean.success.ideal.confidence.combination")
   }
 }
 save(data,file="data_ch.Rda")
@@ -237,7 +289,7 @@ p + stat_function(fun = fun.b.ch,args = list(0.3),colour = "red") + stat_functio
 data$b.opt <- data$d.ideal/data$d.max
 data$b.ch <- data$d.ch.theoretical/data$d.max
 
-data.cor <- subset(data,correlation>0.55)
+data.cor <- subset(data,correlation>0.35)
 
 ggplot(data.cor, aes(y=b.opt,x=equality,colour = correlation)) + geom_point() +ylim(.9,1.6)
 ggplot(data.cor, aes(y=b.ch,x=equality,color=correlation)) + geom_point() +ylim(.9,1.6)
@@ -260,17 +312,8 @@ p + stat_function(fun = s.ch,args = list(1,0),colour = "red") + stat_function(fu
 
 ```
  
- Expressing our result using the s instead of d
  
- 
-```{r}
-library(ggplot2)
-b.ideal <- function(e,rho) (1+e^2)*(1+e^2+2*rho*e)^(-.5)
-s.ideal <- function(s.i,s.j,rho) (s.i^2+s.j^2)*(s.i^2+s.j^2+2*rho*s.i*s.j)^(-.5)
-p <- ggplot(data = data.frame(x = c(0,1)), mapping = aes(x = x))
-p + stat_function(fun = b.ideal,args = list(0.3),colour = "red")
-p + stat_function(fun= s.ideal, args=list(1,.5))
-```
+
 
 I take a group with maximal correlation, i.e. the joint success rate equals the success rate of the least sensitive participant. 
 
@@ -339,12 +382,13 @@ The following curves gives a prediction on the relationship between equality and
 This line is the average benefit across dyads of a given equality, where the correlation parameters varies according to a normal distribution (the same for all equality levels).
 
 ```{r}
+library(mvtnorm)
 mean.success.i <- 0.84
-mean.success.j <- 0.69
+mean.success.j <- 0.60
 sigma.i <- 1/qnorm(mean.success.i)
 sigma.j <- 1/qnorm(mean.success.j)
 e <- sigma.i/sigma.j
-mean.joint.success <- 0.5
+mean.joint.success <- 0.505
 objective.correlation <- function(rho) {
   pmvnorm(lower=c(0,0), upper=c(Inf,Inf), mean=c(1,1),sigma= rbind(c(sigma.i^2,rho*sigma.i*sigma.j),c(rho*sigma.i*sigma.j,sigma.j^2))) - mean.joint.success
 }
@@ -362,6 +406,7 @@ pmvnorm(lower=c(0,0), upper=c(Inf,Inf), mean=c(1,1),sigma= rbind(c(sigma.i^2,rho
 
 #The ideal s 
 ```{r}
+library(ggplot2)
 
 
 s.ideal <- function(s.j,s.i,rho) {
@@ -369,8 +414,166 @@ s.ideal <- function(s.j,s.i,rho) {
   k.j <- s.j^2 - rho*s.i*s.j
   (k.i+k.j)*( k.i^2/s.i^2 + k.j^2/s.j^2 +(2*rho*k.i*k.j)/(s.i*s.j)  )^(-.5)
 }
-p <- ggplot(data = data.frame(x = c(0,1)), mapping = aes(x = x))
-p + stat_function(fun= s.ideal, args=list(1,0.5))
+
+p <- ggplot(data = data.frame(x = c(0,2.5)), mapping = aes(x = x))
+p + stat_function(fun= s.ideal, args=list(1,.5))
+
+```
+This chunk simulates the sensitivity of a dyad using the ideal decision rule as a function of its members' sensitivities and correlation parameters. The aim is to check the prediction of the theoretical relation betwenn s.ideal on the one hand, and s.i, s.j and rho on the other. 
+```{r}
+library(mvtnorm)
+library(ggplot2)
+library(MASS)
+simulated.s.ideal <- function(s.i,s.j,rho) {
+  k.i <- s.i^2 - rho*s.i*s.j
+  k.j <- s.j^2 - rho*s.i*s.j
+  x <- mvrnorm(n = 1000000, c(1,1), rbind(c(s.i^(-2),rho*(s.i*s.j)^(-1)),c(rho*(s.i*s.j)^(-1),s.j^(-2))), tol = 1e-6, empirical = FALSE, EISPACK = FALSE)
+  x.i <- x[,1]
+  x.j <- x[,2]
+  y <- k.i*x.i + k.j*x.j
+  df <- data.frame(x.i,x.j,y)
+  c(mean(y>0),mean(x.i>0),mean(x.j>0), mean(x.i>0 & x.j>0), mean(x.i>0 & y>0),mean(x.i<0&y>0))
+  
+  
+}
+
 
 ```
 
+how weights behave?
+
+```{r}
+coef.i <- function(s.j,s.i,rho) {
+  k.i <- s.i^2 - rho*s.i*s.j
+  k.j <- s.j^2 - rho*s.i*s.j
+  k.i
+}
+
+coef.j <- function(s.j,s.i,rho) {
+  k.i <- s.i^2 - rho*s.i*s.j
+  k.j <- s.j^2 - rho*s.i*s.j
+  k.j
+}
+
+
+p <- ggplot(data = data.frame(x = c(0,2)), mapping = aes(x = x))
+p + stat_function(fun= coef.i, args=list(1,.5)) + stat_function(fun= coef.j, args=list(1,.5))
+```
+
+The optimal decision rule expressed in the space of beliefs. 
+
+```{r}
+ideal.confidence.heuristic <- function(s.i,s.j,rho) {
+  #x<-seq(-10,10,.001)
+  #x.i <- sample(x,length(x),replace=TRUE)
+  #x.j <- sample(x,length(x),replace=TRUE)
+  x.i <- c(rnorm(100000,1,s.i^(-2)),rnorm(100000,-1,s.i^(-2)))
+  x.j <- c(rnorm(100000,1,s.j^(-2)),rnorm(100000,-1,s.j^(-2)))
+  
+  b.i <- dnorm(x.i,1,s.i^(-2))/( dnorm(x.i,1,s.i^(-2)) + dnorm(x.i,-1,s.i^(-2))  )
+  b.j <- dnorm(x.j,1,s.j^(-2))/( dnorm(x.j,1,s.j^(-2)) + dnorm(x.j,-1,s.j^(-2))  )
+  k.i <- s.i^2 - rho*s.i*s.j
+  k.j <- s.j^2 - rho*s.i*s.j
+  d <- k.i*x.i + k.j*x.j >0
+  df <- data.frame(b.i,b.j,d)
+  ggplot(df, aes(y=b.j,x=b.i,colour = d)) + geom_point() + stat_function(fun = function(x) 1-x,color="black",size=1)
+}
+
+ideal.confidence.heuristic(1,0.6,0.5)
+
+
+
+```
+```{r}
+ideal.confidence.heuristic(1,0.4,0.5)
+```
+Graphical representation of the confidence heuristic vs. the optimal combination of confidences. The first applies to cases where both weights are positive. The second applies to cases where the correlation and inequalities are so strong that the weight of the less sensitive pariticipant is negative. This case is highly unintuitive: When both participants disagree, they should always follow the choice of the more sensitive participant. When they agree however, they should go against the consensus. 
+
+```{r}
+s.min <- .6
+s.max <- 1
+rho <- .4
+
+ideal.area <- function(b.max) {
+  k.min <- s.min^2 - rho*s.min*s.max
+  k.max <- s.max^2 - rho*s.min*s.max
+ ( 1+exp( (s.min^2/s.max^2) * (k.max/k.min) * log(b.max/(1-b.max)) ) )^(-1)
+}
+
+ch.area <- function(b.max) {1-b.max}
+
+d<-as.data.frame(seq(0,1,.01))
+colnames(d) <- "x"
+d$ideal <- ideal.area(d$x)
+d$ch <- ch.area(d$x)
+d$fill <- "no fill"
+d$fill[d$ideal > d$ch] <- "fill"
+d$upper <- 1
+d$lower <- 0
+
+ggplot(d,aes(x=x,y=ch)) + geom_line(aes(y=ideal),size=1.5,color="black") + geom_ribbon(ymin=d$ideal,ymax=d$upper,fill="blue",alpha=.1) + geom_vline(xintercept = .5) + geom_hline(yintercept = .5) + geom_ribbon(ymin=d$lower,ymax=d$ideal,fill="green",alpha=.1) + annotate("text", x=.75,y=.75,label="RIGHT",color="blue",size=8) + annotate("text", x=.25,y=.25,label="LEFT",color="green",size=8)
+
+
+
+
+```
+
+```{r}
+
+s.min <- .6
+s.max <- 1
+rho <- .4
+
+ideal.area <- function(b.max) {
+  k.min <- s.min^2 - rho*s.min*s.max
+  k.max <- s.max^2 - rho*s.min*s.max
+ ( 1+exp( (s.min^2/s.max^2) * (k.max/k.min) * log(b.max/(1-b.max)) ) )^(-1)
+}
+
+ch.area <- function(b.max) {1-b.max}
+
+d<-as.data.frame(seq(0,1,.01))
+colnames(d) <- "x"
+d$ideal <- ideal.area(d$x)
+d$ch <- ch.area(d$x)
+d$fill <- "no fill"
+d$fill[d$ideal > d$ch] <- "fill"
+d$upper <- 1
+d$lower <- 0
+
+ggplot(d,aes(x=x,y=ch)) + geom_line(aes(y=ideal),size=1.5,color="black") + geom_ribbon(ymin=d$ideal,ymax=d$upper,fill="blue",alpha=.1) + geom_vline(xintercept = .5) + geom_hline(yintercept = .5) + geom_ribbon(ymin=d$lower,ymax=d$ideal,fill="green",alpha=.1) + annotate("text", x=.75,y=.75,label="RIGHT",color="blue",size=8) + annotate("text", x=.25,y=.25,label="LEFT",color="green",size=8) + geom_ribbon(ymin=d$ch,ymax=d$ideal,fill="red",alpha=.3) + geom_line(aes(y=ch),size=1.5,color="red")
+
+
+
+
+```
+
+
+
+```{r}
+s.min <- .4
+s.max <- 1
+rho <- .5
+
+ideal.area <- function(b.max) {
+  k.min <- s.min^2 - rho*s.min*s.max
+  k.max <- s.max^2 - rho*s.min*s.max
+ ( 1+exp( (s.min^2/s.max^2) * (k.max/k.min) * log(b.max/(1-b.max)) ) )^(-1)
+}
+
+ch.area <- function(b.max) {1-b.max}
+
+d<-as.data.frame(seq(0,1,.01))
+colnames(d) <- "x"
+d$ideal <- ideal.area(d$x)
+d$ch <- ch.area(d$x)
+d$fill <- "no fill"
+d$fill[d$ideal > d$ch] <- "fill"
+d$upper <- 1
+d$lower <- 0
+
+ggplot(d,aes(x=x,y=ch)) + geom_line(aes(y=ideal),size=1.5,color="black") + geom_ribbon(ymin=d$ideal,ymax=d$upper,fill="blue",alpha=.1) + geom_vline(xintercept = .5) + geom_hline(yintercept = .5) + geom_ribbon(ymin=d$lower,ymax=d$ideal,fill="green",alpha=.1) + annotate("text", x=.75,y=.75,label="RIGHT",color="blue",size=8) + annotate("text", x=.25,y=.25,label="LEFT",color="green",size=8) + geom_line(aes(y=ch),size=1.5,color="red") +geom_ribbon(data = d[d$x<=.5,],ymin=d[d$x<=.5,]$ch , ymax=d[d$x<=.5,]$upper,fill="red",alpha=.2) +geom_ribbon(data = d[d$x>=.5,],ymin=d[d$x>=.5,]$ideal , ymax=d[d$x>=.5,]$upper,fill="red",alpha=.2) +geom_ribbon(data = d[d$x<=.5,],ymin=d[d$x<=.5,]$lower , ymax=d[d$x<=.5,]$ideal,fill="red",alpha=.2) +geom_ribbon(data = d[d$x>=.5,],ymin=d[d$x>=.5,]$lower , ymax=d[d$x>=.5,]$ch,fill="red",alpha=.2)
+```
+
+
+I simulate 
